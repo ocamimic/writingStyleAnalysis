@@ -1,19 +1,69 @@
 import spacy
-#sampleText = '\nLunaticという語に象徴されるように、月は人を狂わせる。ならば、私にとって彼女は月である。\n夜闇や寒さがそうさせるのか、人々は太陽を追い求める。明るく暖かいあの球は、遠い国では口説き文句に使われる。なるほど、ならば彼女は太陽だ。\n全てと同格でありながら何よりも貴い。彼女は、まさしく私の全てだった。\n\n\n全てを失ったとき、人には何が残るのだろう。私には記憶と身体が残っているが、人間はどうなんだろうか。\n両手に残った脈拍を頬で感じながら、そうぼんやりと考えた。力無く寝転がった彼女が私と同じ"物"になっていることは、もはや疑いようの無い事実である。\n尊属殺とかロボット法三原則とか、きっとこのあたりで裁かれる。どれだけ人間らしくなっても、人工物であることには変わりないのだから。\n――逃げてしまおうか。\nそんな思いつきが、まるで彼女の命令のように身体を満たした。\n\n\n\n\n\nヒト頭脳搭載型アンドロイドを殺人・遺体損壊容疑で逮捕。当該アンドロイドは行方不明だった青山 春香氏(25)が密造したものであり、事故で死亡していた青山氏の妹、雪美氏の脳が使用されていることが確認されている。\nこの事件の反響は大きく、ヒト頭脳搭載型アンドロイドの倫理的問題点が再度議論の的に……\n\n'
-sampleText = 'brown fox jumps over the lazy dog.'
-nlp = spacy.load('ja_ginza')
- 
-doc = nlp(sampleText)
-#これで文に分ける
-sentence = [s.text for s in doc.sents]
-print(sentence)
+from src import wordDict
+from src import AnalysisCore as AC
 
-attrs_list = []
-for token in doc:
-    token_attrs = [
-        token.lemma_,  # 基本形
-        token.pos_,  # 品詞
-        token.tag_,  # 品詞詳細
-    ]
-    attrs_list.append([str(a) for a in token_attrs])
-print(attrs_list)
+nlp = spacy.load('ja_ginza')
+class processer:
+    text:str | list
+    word = []
+    sent = []
+    def __init__(self, text):
+        if type(text) == list:
+            text = "".join(text)
+        self.text = text
+        doc = nlp(text)
+        for s in doc.sents:
+            self.sent.append(s)
+        for token in doc:
+            token_attrs = [token.lemma_,token.pos_,token.tag_]
+            self.word.append([str(a) for a in token_attrs])
+
+    def voclev(self):
+        """
+        word[2]をハイフンで切り、最初の～詞を基準に品詞ごとの重みづけをする。
+        単語を難易度の辞書に突き合わせ、重みx難易度でスコア化
+        全単語のスコア平均を返す
+        """
+        p = searchWord(self.word)
+        ave = sum(p) / len(p)
+        return ave
+                
+    def styleAnalysis(self):
+        """
+        各品詞の語数に対する出現頻度
+        """
+        NOUN = []#名詞
+        AUX = []#助動詞
+        ADP = []#助詞
+        VERB = []#動詞
+        pos = {'NOUN': NOUN,'AUX': AUX,'ADP': ADP,'VERB': VERB}
+        array = [NOUN, AUX, ADP, VERB]
+        for elem in self.word:
+            if elem[1] in pos:
+                pos[elem[1]].append(elem[0])
+        rateWord = [AC.calcRate(len(self.word),len(e)) for e in array]
+        return rateWord
+    
+    def lenSents(self):
+        """
+        １文の平均長さ
+        """
+        var = 0
+        for x in self.sent:
+            var += len(x)
+        return f'{var / len(self.sent)}文字'
+
+def searchWord(wordList:list):
+    """
+    voclevを短くまとめたかった
+    """
+    sb = wordDict.balance
+    wd = wordDict.wordDiff
+    ans = []
+    for elem in wordList:
+        e = [elem[0], ((elem[2].split('-')))[0]]
+        b = sb[e[1]] if e[1] in sb else 0
+        for x in wd:
+            if (x[0] == e[0] and e[1] in x[3] and b != 0):
+                ans.append(round(x[1] * b, 4))        
+    return ans
